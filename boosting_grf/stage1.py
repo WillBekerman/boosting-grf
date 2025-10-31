@@ -29,11 +29,28 @@ def fit_stage1_structures(
     xi1: float,
     max_depth: int = 5,
     min_leaf: int = 10,
+    ridge_eps: float = 1e-8,
     seed: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """
-    Learn tree structures using boosting on the split score.
-    Returns the learned trees together with dropout bookkeeping.
+    """Grow the Stage 1 tree ensemble described in Algorithm 1.
+
+    Args:
+        X1: Feature array for the structure-learning sample `D1`.
+        O1: List of observation dictionaries containing `"A"` and `"Y"` keys.
+        B: Number of boosting rounds (trees) to train.
+        q: Dropout probability (cf. Section 3 of *causalgrf.pdf*).
+        xi1: Subsampling rate for constructing each `G_b`.
+        max_depth: Maximum depth of the trees built during Stage 1.
+        min_leaf: Minimum number of observations required per leaf.
+        ridge_eps: Diagonal regularisation for the Jacobian during ρ updates.
+        seed: Optional random seed for reproducibility.
+
+    Returns:
+        A dictionary containing the learned tree objects and the dropout sets
+        (`Sb_list`) required during Stage 2.
+
+    Raises:
+        RuntimeError: If a subsample `G_b` becomes too small for splitting.
     """
     rng = RNG(seed)
     n1 = X1.shape[0]
@@ -64,6 +81,7 @@ def fit_stage1_structures(
         theta_nu_per_i: List[Tuple[float, float]] = [None] * m
         A_all = np.array([og["A"] for og in OGb], dtype=float)
         Y_all = np.array([og["Y"] for og in OGb], dtype=float)
+        # Root-level fall-back estimate when no prior trees are available.
         uniform_theta_nu = wls_theta_nu_cate(A_all, Y_all, np.ones(m, dtype=float))
 
         Sb_prev_structs: List[Dict[str, Any]] = []
@@ -75,6 +93,7 @@ def fit_stage1_structures(
         prev_cache = prepare_prev_round_cache(Sb_prev_structs) if Sb_prev_structs else None
 
         if prev_cache is not None:
+            # Solve the weighted estimating equation per unique signature.
             XtWX = prev_cache["XtWX"]
             XtWy = prev_cache["XtWy"]
             contrib_mask = prev_cache["contrib_mask"]
@@ -102,6 +121,7 @@ def fit_stage1_structures(
         depth = 0
         while True:
             # -------- Split step (ρ): use w_prev + alpha_current for ρ --------
+            # Cache current α-weights to avoid recomputation inside ρ.
             curr_cache = build_current_tree_cache(partial, XGb, A_all, Y_all)
             rhos = compute_rho_vector(
                 A_all,
@@ -110,7 +130,7 @@ def fit_stage1_structures(
                 curr_cache,
                 prev_cache,
                 xi_selector=np.array([1.0, 0.0], dtype=float),
-                ridge_eps=1e-8,
+                ridge_eps=ridge_eps,
             )
 
             # Frontier at this depth
@@ -128,6 +148,7 @@ def fit_stage1_structures(
             # Split nodes
             any_split = False
             for node in frontier:
+                # CART-style split using the gradient residuals.
                 best = best_split_for_node(node.indices, XGb, rhos, min_leaf)
                 if best is None or depth >= max_depth:
                     node.is_leaf = True

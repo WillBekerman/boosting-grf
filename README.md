@@ -9,7 +9,8 @@
 - **Leaf-level caching:** All leaf assignments and α-weight sufficient statistics are cached once per round, so later queries only look up precomputed aggregates.
 - **Dropout signature aggregation:** Unique combinations of previous-tree leaves are collapsed; each signature is solved once, dramatically cutting the weighted least-squares workload.
 - **Vectorized ρ updates:** The split residuals use closed-form 2×2 solves with ridge regularization, avoiding per-observation Python loops.
-- **Stage 2 acceleration:** Leaf membership dictionaries reduce β-weight updates from `O(|D2|·B)` scans to `O(L)` lookups, where `L` is the size of the active leaf.
+- **Stage 2 acceleration:** Leaf membership dictionaries reduce β-weight updates from `O(|D2|·B)` scans to `O(L)` lookups, where `L` is the size of the active leaf.
+- **Reusable datasets:** `boosting_grf.datasets.generate_causal_data` matches the `aw1/aw2/aw3` benchmarks used in the GRF literature for fast experimentation.
 
 ## Usage Example
 ```python
@@ -31,6 +32,22 @@ pred = model.predict_theta(X[:5])
 print(pred["theta"])  # Estimated CATEs at the first five locations
 ```
 
+## Tests and Benchmarks
+- Unit smoke tests live under `test/test_basic.py`. Run them with `pytest test/test_basic.py`.
+- The `test/plot_rmse_panel.py` script sweeps six hyperparameters (sample size, boosting rounds, tree depth, dropout rate `q`, subsample rate `ξ₁`, ridge ε) and emits a 2×3 RMSE panel using `matplotlib.fill_between` for one-standard-deviation bands. Results are saved under `plots/` by default. Use `--jobs` to parallelise Monte Carlo trials:
+  ```bash
+  python test/plot_rmse_panel.py --trials 8 --jobs 8
+  ```
+- `test/benchmark_table1.py` reproduces the simulations behind Table 1 of Athey et al. (2019). It reports the original WA-1/WA-2 baselines alongside the estimator implemented here (`GRFBoost` and `C.GRFBoost`). Pass `--jobs` to parallelise across scenarios and Monte Carlo trials:
+  ```bash
+  python test/benchmark_table1.py --reps 20 --trees 400 --jobs 8 --output table1_results.json
+  ```
+  The JSON artefact records both the reference values (WA-1/WA-2/GRF/C.GRF) and the estimates obtained with this repository.
+- Visualise the resulting JSON with `test/visualize_table1.py` to see the WA baselines and GRFBoost comparisons side-by-side:
+  ```bash
+  python test/visualize_table1.py --input table1_results.json --output plots/table1_comparison.png
+  ```
+
 ## Time Complexity (after optimizations)
 - Let `m ≈ ξ₁·|D1|` be the subsample size, `s` the expected dropout load `|S_b|`, `p` the feature count, and `L_b ≤ 2^{max_depth}` the number of leaves at depth `b`.
 - **Stage 1 (per boosting round):**
@@ -51,3 +68,13 @@ print(pred["theta"])  # Estimated CATEs at the first five locations
 - Keep `ξ₁` and `min_leaf` aligned: raising `min_leaf` reduces the number of active leaves, which tightens both Stage 1 and Stage 2 runtime.
 - Tune dropout `q`: higher dropout boosts statistical robustness but increases `s`; use profiling on your target workload to pick a sweet spot.
 - When predicting a large test set, batch the matrix solves by stacking `x_new` rows and reusing the same β-weights whenever two points fall into identical tree leaves.
+
+## Installation
+
+Install the package in editable mode for development:
+
+```bash
+python -m pip install -e .
+```
+
+After installation the `boosting_grf` package is importable from anywhere, and CLI utilities in `test/` will pick it up without modifying `PYTHONPATH`.

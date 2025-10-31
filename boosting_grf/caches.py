@@ -16,9 +16,17 @@ def summarize_leaf_contrib(
     A_all: np.ndarray,
     Y_all: np.ndarray,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Summarize the sufficient statistics that a single leaf contributes under
-    uniform α-weights.
+    """Compute per-leaf aggregates used in Algorithm 1 updates.
+
+    Args:
+        member_idx: Indices of `G_b` observations contained in the leaf.
+        weight: Per-observation α-weight contribution from the leaf.
+        A_all: Treatment indicators for all rows in `G_b`.
+        Y_all: Outcome values for all rows in `G_b`.
+
+    Returns:
+        A dictionary containing weighted sums and Jacobian contributions, or
+        ``None`` if the leaf has no members or zero weight.
     """
     count = int(member_idx.size)
     if count == 0 or weight <= 0.0:
@@ -52,9 +60,17 @@ def build_prev_tree_cache(
     A_all: np.ndarray,
     Y_all: np.ndarray,
 ) -> Dict[str, Any]:
-    """
-    Cache leaf assignments and α-weight statistics for a previous tree evaluated
-    on the current subsample G_b.
+    """Pre-compute previous-tree statistics on the current subsample.
+
+    Args:
+        prev_tree_info: Metadata dictionary produced during Stage 1.
+        XGb: Feature matrix for the current subsample `G_b`.
+        A_all: Treatment indicators for the subsample.
+        Y_all: Outcomes for the subsample.
+
+    Returns:
+        A dictionary mapping leaf identifiers to cached statistics required to
+        build dropout-weight contributions.
     """
     tree = prev_tree_info["tree"]
     leaf_ids_on_cur = compute_leaf_ids(tree, XGb)
@@ -81,9 +97,16 @@ def build_current_tree_cache(
     A_all: np.ndarray,
     Y_all: np.ndarray,
 ) -> Dict[str, Any]:
-    """
-    Cache leaf assignments and α-weight statistics for the partially grown tree
-    during the current boosting round.
+    """Cache α-weight statistics for the partially grown tree.
+
+    Args:
+        partial_tree: The tree being grown in the current boosting round.
+        XGb: Feature matrix of the subsample.
+        A_all: Treatment vector aligned with `XGb`.
+        Y_all: Outcome vector aligned with `XGb`.
+
+    Returns:
+        A dictionary with per-leaf membership arrays and aggregated statistics.
     """
     leaf_ids = compute_leaf_ids(partial_tree, XGb)
     leaf_stats: Dict[int, Dict[str, Any]] = {}
@@ -107,8 +130,16 @@ def aggregate_signature_stats(
     signature: np.ndarray,
     prev_structs: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    """
-    Aggregate α-weight statistics across a unique combination of previous-tree leaves.
+    """Aggregate statistics across a unique dropout signature.
+
+    Args:
+        signature: One row of the signature matrix produced by
+            :func:`prepare_prev_round_cache`.
+        prev_structs: Cached statistics for the previous trees included in the
+            dropout set `S_b`.
+
+    Returns:
+        A dictionary containing cumulative moments and Jacobian contributions.
     """
     w_sum = 0.0
     wA_sum = 0.0
@@ -141,8 +172,15 @@ def aggregate_signature_stats(
 def prepare_prev_round_cache(
     prev_structs: List[Dict[str, Any]],
 ) -> Optional[Dict[str, Any]]:
-    """
-    Build aggregated statistics for all unique dropout signatures present in S_b.
+    """Build a cache for unique dropout signatures.
+
+    Args:
+        prev_structs: List of per-tree caches produced by
+            :func:`build_prev_tree_cache`.
+
+    Returns:
+        A dictionary containing aggregated statistics keyed by signature, or
+        ``None`` if the dropout set is empty for the current round.
     """
     if not prev_structs:
         return None
@@ -173,9 +211,25 @@ def compute_rho_vector(
     xi_selector: np.ndarray,
     ridge_eps: float = 1e-8,
 ) -> np.ndarray:
-    """
-    Vectorized implementation of
-    ρ_i = -ξᵀ[∑_j w_j^(ρ)(X_i) ∇ψ(O_j; X_i)]^{-1} ψ(O_i; X_i).
+    """Compute the gradient-based splitting residuals `ρ_i`.
+
+    Implements Equation (9) in *causalgrf.pdf* using cached statistics to avoid
+    repeated traversals.
+
+    Args:
+        A_all: Treatment indicators for the current subsample.
+        Y_all: Outcome vector for the same subsample.
+        theta_nu_per_i: List of `(theta, nu)` tuples from the estimating step.
+        curr_cache: Cache produced by :func:`build_current_tree_cache`.
+        prev_cache: Cache produced by :func:`prepare_prev_round_cache` or ``None``.
+        xi_selector: Selector vector for the component of the score used when
+            projecting onto the boosting direction.
+        ridge_eps: Ridge regularisation strength added to the diagonal of the
+            Jacobian to preserve numerical stability.
+
+    Returns:
+        A NumPy array of shape `(m,)` containing the residuals `ρ_i` for all rows
+        in the current subsample.
     """
     m = A_all.shape[0]
     theta_arr = np.array([tn[0] for tn in theta_nu_per_i], dtype=float)

@@ -18,8 +18,22 @@ def fit_stage2_grf(
     xi2: Optional[float] = None,
     seed: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """
-    Stage 2: reuse the learned structures to prepare α-weights for the GRF sample.
+    """Pre-compute Stage 2 leaf membership and weights.
+
+    Args:
+        X2: Feature matrix for the GRF sample `D2`.
+        trees: List of dictionaries returned by Stage 1.
+        Sb_list: Dropout sets corresponding to each Stage 1 tree.
+        M: Unused placeholder for future extensions (mirrors literature).
+        xi2: Optional Stage 2 subsampling rate (currently unused for Algorithm 1).
+        seed: Optional seed for reproducibility (unused but kept for symmetry).
+
+    Returns:
+        A dictionary containing per-tree leaf-membership indices and weights that
+        can be reused when computing β-weights at prediction time.
+
+    Raises:
+        RuntimeError: If Stage 1 produced no trees.
     """
     n2 = X2.shape[0]
     BT = len(trees)  # equals B
@@ -49,10 +63,14 @@ def fit_stage2_grf(
 
 
 def compute_beta_weights(model: Dict[str, Any], x_new: np.ndarray) -> np.ndarray:
-    """
-    beta_i(x) = sum_{b=0}^{B-1} [ alpha^{(b)}_i(x) + sum_{b'\in S_b} alpha^{(b')}_i(x) ], i \in D2.
-    alpha^{(t)}_i(x) is uniform within the tree-t leaf containing x on D2.
-    Normalize beta to sum to 1 over D2.
+    """Compute β-weights for a new query point following Algorithm 1.
+
+    Args:
+        model: A model dictionary constructed by :func:`fit_alg1_grf`.
+        x_new: Feature vector for which the β-weights are to be evaluated.
+
+    Returns:
+        A weight vector over the Stage 2 dataset `D2`, normalised to sum to one.
     """
     X2 = model["X2"]
     stage1 = model["stage1"]
@@ -71,6 +89,7 @@ def compute_beta_weights(model: Dict[str, Any], x_new: np.ndarray) -> np.ndarray
         weight_map = leaf_weights_per_tree[t_index]
         members = members_map.get(int(lid_q))
         if members is not None:
+            # Uniform contribution within the leaf; accumulate in-place.
             betas[members] += weight_map[int(lid_q)]
 
     for b in range(BT):
