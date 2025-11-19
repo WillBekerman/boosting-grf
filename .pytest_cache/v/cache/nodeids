@@ -1,0 +1,4 @@
+[
+  "test/test_basic.py::test_generate_causal_data_shapes",
+  "test/test_basic.py::test_small_fit_runs"
+]
