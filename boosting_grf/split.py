@@ -7,6 +7,8 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
+from .grf import _GRF_AVAILABLE, best_split_regression
+
 
 def best_split_for_node(
     node_rows: np.ndarray,
@@ -14,7 +16,27 @@ def best_split_for_node(
     rhos: np.ndarray,
     min_leaf: int,
 ) -> Optional[Dict[str, Any]]:
-    """Return the best CART-style split for the supplied node or None if unsplittable."""
+    """Dispatch to the fast GRF-backed splitter when available."""
+    if _GRF_AVAILABLE:
+        result = best_split_regression(XGb, rhos, node_rows, int(min_leaf))
+        if result is None:
+            return None
+        return {
+            "feature": int(result["feature"]),
+            "threshold": float(result["threshold"]),
+            "left": np.asarray(result["left_indices"], dtype=np.int64),
+            "right": np.asarray(result["right_indices"], dtype=np.int64),
+        }
+    return _best_split_numpy(node_rows, XGb, rhos, min_leaf)
+
+
+def _best_split_numpy(
+    node_rows: np.ndarray,
+    XGb: np.ndarray,
+    rhos: np.ndarray,
+    min_leaf: int,
+) -> Optional[Dict[str, Any]]:
+    """Pure NumPy fallback split search."""
     if node_rows.shape[0] < 2 * min_leaf:
         return None
     best = None

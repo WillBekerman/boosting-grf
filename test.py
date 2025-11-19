@@ -2,16 +2,16 @@
 Backward-compatible entry point that delegates to the refactored boosting_grf package.
 
 Public API:
-    model = fit_alg1_grf(...)
+    model = GeneralizedBoostedKernels.fit(...)
     pred  = model.predict_theta(...)
 """
 from __future__ import annotations
 
 import numpy as np
 
-from boosting_grf import Alg1GRFModel, fit_alg1_grf
+from boosting_grf import GeneralizedBoostedKernels
 
-__all__ = ["Alg1GRFModel", "fit_alg1_grf"]
+__all__ = ["GeneralizedBoostedKernels"]
 
 
 if __name__ == "__main__":
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     O2 = [O_list[int(i)] for i in D2]
 
     B = 16
-    model = fit_alg1_grf(
+    model = GeneralizedBoostedKernels.fit(
         X1,
         O1,
         X2,

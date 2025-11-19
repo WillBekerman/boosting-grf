@@ -1,3 +1,21 @@
+Metadata-Version: 2.4
+Name: boosting-grf
+Version: 0.1.0
+Summary: Algorithm 1 tree-structure boosting implementation for generalized random forests
+Author: Boosting GRF Team
+License: MIT
+Project-URL: Homepage, https://example.com/boosting-grf
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: matplotlib
+Requires-Dist: pytest
+Requires-Dist: tqdm
+Provides-Extra: dev
+Requires-Dist: matplotlib; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+
 # boosting-grf
 
 ## Overview

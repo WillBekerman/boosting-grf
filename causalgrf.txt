@@ -1,0 +1,745 @@
+Estimation and Inference of Heterogenous Treatment Effects via
+Boosting
+
+November 18, 2025
+Abstract
+Gradient boosting is widely popular due to its flexibility and predictive accuracy. However, statistical inference and uncertainty quantification for gradient boosting remain challenging and under-explored. We propose a
+unified framework for statistical inference in gradient boosting regression. Our framework integrates dropout or
+parallel training with a recently proposed regularization procedure that allows for a central limit theorem (CLT)
+for boosting. With these enhancements, we surprisingly find that increasing the dropout rate and the number of trees grown in parallel at each iteration substantially enhances signal recovery and overall performance.
+Our resulting algorithms enjoy similar CLTs, which we use to construct built-in confidence intervals, prediction
+intervals, and rigorous hypothesis tests for assessing variable importance. Numerical experiments demonstrate
+that our algorithms perform well, interpolate between regularized boosting and random forests, and confirm the
+validity of their built-in statistical inference procedures.
+
+1
+
+Introduction
+
+Consider the common setup where we have i.i.d. examples i = 1, ..., n, such that
+Yi = τ (xi )Ai + f (Xi ) + ϵi ,
+
+E[ϵi |Ai , Xi ] = 0,
+
+where Ai ∈ {0, 1} is a binary treatment indicator and τ is the (heterogenous) treatment effect at x:
+
+
+(1)
+(0)
+τ (x) = E Yi − Yi Xi = x .
+We assume unconfoundedness, that is, that the potential outcomes are independent of the treatment conditional
+(1)
+(0)
+on the covariates: {Yi , Yi ⊥
+⊥ Ai | Xi }. Under unconfoundedness, it can be shown that
+" 
+#
+
+Ai
+1 − Ai
+τ (x) = E Yi
+−
+Xi = x , where π(x) = E[Ai | Xi = x] is the propensity score.
+π(x) 1 − π(x)
+This can be written in another way:
+Yi − m(x) = τ (x) · (Ai − π(x)) + ϵi , where m(x) = E[Yi |Xi = x] = f (x) + τ (x) · π(x) is the outcome model.
+This implies that we can regress the demeaned outcome on the demeaned treatment to recover the CATE. Now say
+that we have a reasonable outcome model given by kernel regression:
+b P (x)⊤ (I + (K − 1)K
+b P )−1 KYn .
+b
+m(x) ≈ rbnP (x)⊤ Yn = m(x)
+=k
+n
+n
+If the weights rbnP (x) can be shared between outcome prediction and propensity score prediction, the propensity
+score model can also be given by kernel regression:
+π(x) ≈ π
+b(x) = rbnP (x)⊤ An .
+Why are the propensity score and outcome model computed with the same weights? In a tree, the treatment
+propensity is the proportion of units in the same leaf that are treated, while the outcome is the average outcome
+within the same leaf. This is straightforward within an adaptive nearest neighbors interpretation. Within a kernel
+regression, we maybe have to do a little more work to justify this.
+1
+
+1.1
+
+Estimation via an outcome model
+
+The g-formula1 states that
+[ = E[m(a) (x)] = Ex∼P(X) [Y | A = a, X = x] , where the expectation is taken over the density of the covariates.
+ATE
+We can estimate the CATE m(a) (x) via boosting, under unconfoundedness. This is given by
+b (1) (x) − m
+b (0) (x), where m
+b (a) (x) is the boosting prediction,
+m
+with variance given by the Delta method:
+
+
+b (1) (x)) + Var(m
+b (0) (x)) − 2Cov m
+b (1) (x), m
+b (0) (x) .
+Var(m
+(a)
+
+Both the first and second quantities can be estimated by σ
+b2 ∥b
+rn (x)∥22 , and the cross-term is given by 2 · σ
+b2 ·
+(1)
+(0)
+⊤
+rbn (x) rbn (x). We then have a built in variance estimate for the CATE:
+d τ (x)) = σ
+Cov(b
+b2 ∥b
+rn(1) (x)∥22 + σ
+b2 ∥b
+rn(0) (x)∥22 − 2 · σ
+b2 · rbn(1) (x)⊤ rbn(0) (x).
+
+2
+
+EBMs
+
+Now say we have an additive model:
+yi = τ (xi )ai +
+
+d
+X
+
+f (xi,j ) + ϵ.
+
+j=1
+
+[Kevin: Defer EBMs to separate paper]
+
+3
+
+Yihui comment
+
+[Kevin: Alternate algorithm: Run boosting as usual, and then take average of boosters as weak learners in a GRF.]
+Suppose we have
+σ −1
+
+n
+X
+
+αi ψθ0 ,ν0 ,i ⇒ N (0, I),
+
+i=1
+
+and since we have
+n
+X
+
+αi ψθ̂,ν̂,i = 0,
+
+i=1
+
+[Kevin: This only holds on the training set.] we have
+n
+n
+X
+X
+σ −1 (
+αi ψθ0 ,ν0 ,i −
+αi ψθ̂,ν̂,i ) ⇒ N (0, I).
+i=1
+
+If we view θ as a function of
+
+i=1
+
+Pn
+
+i=1 αi ψθ,ν,i , then we can use delta method to obtain
+
+σ −1 (θb − θ0 ) ⇒ N (0, f ′2 )
+for f ′ as a derivative
+[Kevin: Do we need to even fit gradient trees here if we are gradient boosting?]
+1 The g stands for great.
+
+2
+
+The outcome variable ψ has parameter θ and ν within it, so I think we should only use the weights of previous trees,
+rather than the previous estimation of parameters, in boosting. I will provide a very rough idea about how we can
+(b)
+construct the boosting tree. Suppose the tree weight function of unit i in the bth round of boosting is αi (x). In
+the (k + 1)th round of boosting, we randomly pick Gk+1 ⊂ {1, · · · , k} with the probability of q and pick a random
+subsample Sk+1 to train the new tree. In each splitting in the (k + 1)th tree we should maximize
+X 
+
+θ̂after splitting (xi ) − θ̂before splitting (xi )
+
+2
+
+,
+
+i∈Sk+1
+
+where the two θ̂ are obtained from
+
+X
+
+
+(b)
+
+X
+
+i∈Sk+1
+
+(k+1)
+
+αi (x) + αi
+
+
+
+(x) ψθ̂,ν̂,i = 0
+
+b∈Gk+1
+
+[Kevin: This looks like a regular boosting estimating equation. Does this incorporate Boulevard regularization?]
+[Kevin: May not have to use Boulevard! Because we are not interested in the residuals.]
+[Kevin: This is effectively taking an average of the tree weights. But because of the term on the left, which is absent
+in the generalized random forest setting, this is still a boosting procedure!] Then, similar as Wager 2019, we should
+approximately maximize
+
+2
+2
+X
+X
+|Cj | 
+ρij (xi )
+xi ∈Cj
+
+j=1
+
+where
+
+
+
+
+ρij (xi ) = −ξ T ∇ λ
+
+
+X
+
+(b)
+
+−1
+
+αi (xi )ψθ̂,ν̂,i  + |Cj |AP 
+
+ψθ̂,ν̂,i .
+
+b∈Gk+1
+
+PB
+To prove the asymptotic property, maybe we only need to prove that αi1:B (x) := B1 b=1 αib (x) converges in finite
+sample to a limit function αi (x) as B → ∞. Then, as long as αi (x) is supported on a neighborhood of xi with
+width of a certain order, we have
+σ −1
+
+n
+X
+
+αi ψθ0 ,ν0 ,i ⇒ N (0, I).
+
+i=1
+
+[Kevin: Perform boosting to get the tree structures, then throw away the leaf weights. Refit, and take average of
+tree weights after.]
+Questions:
+1. How adaptive can trees be in Boulevard framework? What’s the advantage of using Boulevard framework over
+incorporating boosting into base tree? [Kevin: Compared to taking an average of boosters, this is significantly
+faster and requires three orders of magnitudes less trees. ]
+
+3.1
+
+Updates on 7/23
+
+A big problem: the violation of structure-value isolation.
+Solutions:
+1. Split the data, use one part to learn tree structures by gradient algorithm with boosting. After sufficient
+boosting, we randomly draw the tree structures here to run standard grf on the other part. (It’s a little trivial
+in methodology but may be useful in practice)
+2. Run Boulevard for residual-based parameters.
+3. Cross-fitting! Good luck everybody!
+
+3
+
+Algorithm 1 Boosting algorithm only for tree structure
+1: Input: Tree-structure learning sample and grf sample (D1 , D2 ) with features X, treatment variables A, and
+
+labels Y . Number of boosting rounds B for tree-structure learning stage, tree depth T , dropout rate p = 1 − q
+in tree-structure learning stage, subsample rate ξ, and regularization parameter λ
+2: for b = 0, . . . , B − 1 do
+3:
+Subsample data Gb ⊆ D1 with probability ξ. We’ll learn the bth gradient tree with Gb .
+4:
+Subsample Sb ⊆ {0, . . . , b − 1} with probability q. For arbitrary b′ ≤ b and i ∈ Gb , define tree weight
+(b′ )
+
+αi
+
+(X) = P
+
+1(Xi ∈ LX )
+,
+i∈Gb′ 1(Xi ∈ LX )
+(b′ )
+
+5:
+
+where LX is the leaf containing X in the (b′ )th tree. Let αi (X) = 0 if the denominator is 0.
+Fit the plug-in parameters before we grow the bth tree. If Sb is not null, then for any i ∈ Gb , calculate
+(
+!
+)
+X
+X (b′ )
+(θ̂(Xi ), ν̂(Xi )) = argminθ,ν ∥
+αi′ (Xi ) ψθ,ν (Oi′ ; Xi , λ)∥ .
+i′ ∈Gb
+
+b′ ∈Sb
+
+Plug in this set of (θ̂(Xi ), ν̂(Xi )) in the splitting of the whole tree. If Sb is null, then in the splitting of each
+node P we need to fit a new set of parameters. However, (θ̂(Xi ), ν̂(Xi ) will be the same for all Xi ∈ P , and
+
+
+
+
+X
+(θ̂(Xi ), ν̂(Xi )) = argminθ,ν ∥
+ψθ,ν (Oi′ ; Xi , λ)∥ .
+ ′
+
+i ∈Gb ,Xi′ ∈P
+
+6:
+7:
+
+for t = 0, . . . , T − 1 do
+Based on the plug-in parameters and the weights from previous trees and the first t layers of this tree,
+calculate the gradient ρi for all i ∈ Gb . Prior to splitting any node at a given depth of the tree, assume
+(b)
+that αi (X) denotes the current tree weight for the new tree. For any i ∈ Gb , calculate
+!−1
+
+!
+
+ρi = −ξ
+
+8:
+
+T
+
+X
+
+X
+
+i′ ∈Gb
+
+b′ ∈Sb
+
+(b)
+(b′ )
+αi′ (Xi ) + αi′ (Xi )
+
+∇ψθ̂(Xi ),ν̂(Xi ) (Oi′ ; Xi , λ)
+
+ψθ̂(Xi ),ν̂(Xi ) (Oi ; Xi , λ).
+
+Here, ξ is a vector with 1 on the digits corresponding to θ and 0 on the digits corresponding to ν.
+Based on ρi , split all nodes in the t-th layer of the tree. Suppose that the parent node contains {i : Xi ∈ P },
+to decide how we split P into C1 and C2 , we maximize
+2
+
+
+
+2
+X
+
+1
+
+|i
+:
+X
+∈
+C
+i
+j , i ∈ Gb |
+j=1
+
+X
+
+ρi  .
+
+Xi ∈Cj ,i∈Gb
+
+9:
+
+end for
+(b)
+
+(b−1)
+
+(x) + λb (
+10:
+Update βi (x) = b−1
+b βi
+11: end for
+12: Return for all interested X
+
+(b′ )
+(b)
+(0)
+b′ ∈Sb αi (x) + αi (x)). Start from βi (x) = 0.
+
+P
+
+(
+
+)
+∥
+
+(θ̂(X), ν̂(X)) = argminθ,ν
+
+X
+
+βi (X)ψθ,ν (Oi ; X, λ)∥
+
+i∈D2
+
+For standard CATE estimation, we have 1-dimensional θ and 1-dimensional ν, and the formula of ψ is
+ψθ,ν (Oi ; X) = (Yi − Ai θ − ν)(Ai , 1)T .
+For CATE in local random forest, we have 1-dimensional θ and 2d + 1-dimensional ν, where d is the dimensional
+of X. Let ν1 , ν2 and ν3 be the first 1 dimension, the following d dimensions, and the last d dimensions of ν,
+4
+
+respectively. There would be regularization terms with coefficient λ for ν2 and ν3 , and the formula of ψ is
+ψθ,ν (Oi ; X, λ) =(Yi − Ai (θ + ν2 (Xi − X)) − (ν1 + ν3 (Xi − X)))(Ai , 1, Ai (Xi − X), Xi − X)T + 2λ(0, 0, ν2 , ν3 )T .
+In these two cases, as well as in many other cases, we can solve the linear equations to get θ and ν for different Xi
+instead of doing optimization.
+The final algorithm in Algorithm 1 degenerates into a random forest where the tree structures are chosen adaptively.
+The leaf weights are not adaptive! [Yihui: Also, Algorithm 1 is expensive in computation because we need to fit local
+parameters for all units before we split the tree. A main reason why we use subsampling and dropout in Algorithm
+1 is to cut the computation expense.] Hence we may wish to adopt Algorithm 2, when we are looking at estimating
+linear functionals of the labels. [Yihui: In Algorithm 2, we can still use the tree structure learning algorithm
+as in Algorithm 1, but instead of running ensemble optimization we’ll run Boulevard boosting and ensemble the
+parameters obtained in separate optimizations.]
+Algorithm 2 Boosting algorithm for both tree structure and residuals
+1: Input:
+
+Tree-structure learning sample and Boulevard learning sample (D1 , D2 ) with features X, treatment
+variables A, and labels Y . Number of boosting rounds (B, M ) for tree-structure learning stage and Boulevard
+stage, dropout rate (p1 = 1 − q1 , p2 = 1 − q2 ) for tree-structure learning stage and Boulevard stage, subsample
+rate (ξ1 , ξ2 ) in the two stage, and regularization parameter λ (optional)
+2: Do everything in the tree-structure learning stage as in 1.
+3: for m=1,. . . ,M do
+4:
+Subsample data Hm ⊆ D2 with probability ξ2 .
+5:
+Draw a tree from D1 . The probability of choosing the bth tree proportional to (1+kb ), where kb is the number
+of trees in D1 boosting on the bth tree. For all i ∈ D2 , let LX be the leaf containing X in the selected tree,
+and we have
+1(Xi ∈ LX , i ∈ Hm )
+(m)
+.
+βi (X) = P
+i∈D2 1(Xi ∈ LX , i ∈ Hm )
+6:
+
+Subsample Tm ⊆ {0, . . . , m − 1} with probability q2 . For m′ < m, let
+X (m′ )
+(m′ )
+βi′ (Xi )Yi′
+Ŷi
+=
+i′
+
+and let
+Zi = Yi −
+
+X
+1
+(m′ )
+Ŷi
+m−1 ′
+m ∈Tm
+
+7:
+
+for all i ∈ Hm . Let Õi be the vector of observable variables where Yi is replaced with Zi .
+For any interested X, calculate
+(
+)
+X (m)
+(m)
+(m)
+(θ̂(X) , ν̂(X) ) = argminθ,ν ∥
+βi (X)ψθ,ν (Õi ; X, λ)∥
+i∈D2
+1+q
+
+′
+
+8:
+Let θ̂m (X) = M 2 m′ ≤m θ̂(X)(m )
+9: end for
+10: Return for all interested X
+
+P
+
+θ̂M (X)
+
+[Kevin: Problem: Trees here are not fit on residuals. It is possible to run standard (L2) Boulevard, get the
+propensity scores from the Boulevard kernel, and outcome model from L2 Boulevard. With extra work, perhaps we
+can make leaf updates according to the score equation. ]
+In this algorithm, it matters how we define parameters as linear functional of Y . The easiest way is to assume that
+the grf estimator of θ(X) has a closed-form formula
+θ̂(X) = Kn (X)Y
+
+5
+
+for some Kn . This holds for the two examples I mentioned before. Under this assumption, we can easily prove the
+anology of Theorem 1 in the Boulevard paper.
+e t :=
+Proof. To show Algorithm 2 is a stochastic contraction mapping, define ut := θ̂t (X) − θ̂∗ (X). And define Y
+Pt−1
+i.i.d.
+1
+k=1 Bk t̂k , Bk ∼ Ber(q2 ). To check mean contraction, notice that
+t−1
+
+
+
+t−1
+1
+∗
+e
+∥E[ut | Ft−1 ]∥ = E
+θ̂t−1 (X) + Kn (Y − Yt ) − θ̂ (X) Fb−1
+t
+t
+t−1
+1
+e t |Ft−1 ]) − 1 θ̂∗ (X)
+=
+(θ̂t−1 (X) − θ̂∗ (X)) + E[Kn ](Y − E[Y
+t
+t
+t
+1
+t−1
+e t |Ft−1 ]) − 1 E[Kn ](Y − q2 θ̂∗ (X))
+≤
+θ̂t−1 (X) − θ̂∗ (X) +
+E[Kn ](Y − E[Y
+t
+t
+t
+t−1
+1
+e t |Ft−1 ])
+=
+∥ut−1 ∥ +
+E[Kn ](q2 θ̂∗ (X) − E[Y
+t
+t
+t − 1 + q2
+≤
+∥ut−1 ∥
+t
+Next we check for bounded deviations.
+∥εt ∥ = ∥ut − E[ut | Ft−1 ]∥
+1
+e t ) + 1 E[Kn ](−E[Y
+e t |Ft−1 ] | Fb−1 ])
+(Kn − E[Kn ])(Y − Y
+t
+t
+λ
+≤ ∥E[Sn ] − Sn ∥ · ∥Y − ΓM (e
+yb−1 ) + E[ΓM (e
+yb−1 ) | Fb−1 ]∥
+b
+=
+
+Now, by Zhou and Hooker (2022), we know E[Sn ] has both row sum and column sum no greater than 1, hence we
+see that
+q
+√
+√
+∥E[Sn ]∥ ≤ ∥E[Sn ]∥1 · ∥E[Sn ]∥∞ ≤ 1 · n = n.
+Then, it can be seen that
+∥εt ∥ ≤
+Then we can show that
+
+∞
+X
+b=1
+
+2
+
+√
+1
+· (1 + n) · 2M
+t
+
+∥εb ∥ =
+
+∞
+X
+b=1
+
+6
+
+
+O
+
+1
+b2
+
+
+< ∞.
+
+4
+
+8/20 meeting
+
+4.1
+
+Methodology
+
+A problem in Algorithm 2 is that we’re not using leaf values in previous rounds to update the residual in a new
+round. This means that our method is approximately equivalent to using a large m and only calculating one θ̂ as
+the final estimate.
+To deal with this problem, we can turn to a new algorithm, in which we first run a standard Boulevard, and then
+use the residual in each round to learn θ̂ and average them.
+
+4.2
+
+Application dataset
+
+We can use our method on the bird-watching dataset. Each bird photo is an observation, and we know information
+about the bird species, the photo-taking area, and the photo taker. The interested outcome variable is a dummy
+variable of whether the bird in the photo belongs to a certain species, which indicates its level of endangerment.
+We try to estimate the heterogeneous time trend in the level of endangerment, where the treatment variable is year
+and the covariates include variables such as the photo-taking area, the climate variables in the area, the frequency
+of other birds in the area, and the photographer expertise.
+
+5
+
+9/17 meeting
+
+Key point: low-dimensional analysis for high-dimension confounder (e.g. check the treatment effect correlation
+between location and expertise, while controlling for a lot more variables). When we marginalize the effect over
+other variables, we can use DML to achieve better accuracy.
+
+5.1
+
+A version of algorithm
+
+(i) Run Boulevard on treatment model and outcome model respectively, and possibly use grf to get more sensible
+outcome and treatment estimators (ii) Run orthogonal random forest with the nuisance functions from Boulevard.
+(use cross-fitting and orthogonal score to ensure that the randomness mainly comes from U-statistics) For example,
+we can use the score
+ϕ = {Y − q(X, W ) − θ(T − g(X, W ))}(T − g(X, W ))
+with kernel weights αi (X). (iii) Do inference in this level by estimating the final kernel
+
+5.2
+
+Questions and remarks
+
+(i) How do we calculate h∗ for V-statistic in Zhou 2021, are we going to calculate h∗ ? (ii) Can Boulevard be seen
+as V-statistics or U-statistics? (iii) Can Boulevard handle heteroskedasticity well and used in treatment nuisance
+function regression? (iv) It seems that Boulevard may not be optimal both in nuisance estimation and in result
+integration.
+
+5.3
+
+Takeaways
+
+In the score estimation stage, need new score function incorporating the treatment and outcome models as well as
+the final model for θ(x). We will be doing three boosting procedures. It would be nice to not have to make any
+assumptions on the treatment and outcome models.
+
+7
+
+6
+
+Algorithms based on Boulevard
+
+Algorithm 3 Boosting algorithm based on Boulevard
+1: Input: Tree-structure learning sample, main learning sample, and nuisance learning sample (D1 , D2 , D3 ) with
+
+important features X, other features W, treatment variables A, and labels Y . Number of boosting rounds
+(B, M ) for tree-structure learning stage and Boulevard stage, dropout rate (p1 = 1 − q1 , p2 = 1 − q2 ) for
+tree-structure learning stage and Boulevard stage, subsample rate (ξ1 , ξ2 ) in the two stage, and regularization
+parameter λ (optional)
+2: Do everything in the tree-structure learning stage as in 1.
+3: Use Boulevard to learn nuisance function ν̂ = (Ŷ (x, w), Â(x, w)) on D3
+4: for m=1,. . . ,M do
+5:
+Subsample data Hm ⊆ D2 with probability ξ2 .
+6:
+Draw a tree from D1 . The probability of choosing the bth tree proportional to (1+kb ), where kb is the number
+of trees in D1 boosting on the bth tree. For all i ∈ D2 , let LX be the leaf containing X in the selected tree,
+and we have
+1(Xi ∈ LX , i ∈ Hm )
+(m)
+.
+βi (X) = P
+i∈D2 1(Xi ∈ LX , i ∈ Hm )
+7:
+
+′
+Subsample Tm ⊆ {0, . . . , m−1} with probability q2 . For m′ < m, let fˆ(m ) be the result of outcome Boulevard
+in the (m′ )th round and let
+X (m′ )
+1
+Zi = Yi −
+fˆi
+m−1 ′
+
+m ∈Tm
+
+8:
+
+for all i ∈ Hm . Let Õi be the vector of observable variables where Yi is replaced with Zi .
+For any interested X, calculate
+(
+)
+X (m)
+(m)
+(m)
+(θ̂(X) , ν̂(X) ) = argminθ,ν ∥
+βi (X)ψθ,ν (Õi ; X, λ, ν̂)∥ .
+i∈D2
+
+Also, obtain the outcome predictor fˆ(m) (W, X) to update Boulevard.
+λ
+(m)
+.
+9:
+Let θ̂m (X) = m−1
+m θ̂m−1 (X) + m θ̂(X)
+10:
+Exchange D2 with D3 to get another θ estimator, use the mean of the two θ to get the final result.
+11: end for
+12: Return for all interested X
+θ̂M (X)
+
+Remark: We need four trees in total, which are the two Boulevard trees in nuisance estimation, the outcome Boulevard tree in main estimation, and the X kernel tree in main estimation. The splitting rules of the outcome/treatment
+predictor trees can be the same as grf, but the X-kernel tree may have different gradient form.
+
+References
+
+8
+
+

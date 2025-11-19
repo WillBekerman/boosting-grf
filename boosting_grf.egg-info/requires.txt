@@ -1,0 +1,9 @@
+numpy
+matplotlib
+pytest
+tqdm
+
+[dev]
+matplotlib
+pytest
+pytest-cov

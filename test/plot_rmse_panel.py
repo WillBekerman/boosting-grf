@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm.auto import tqdm
 
-from boosting_grf import fit_alg1_grf
+from boosting_grf import GeneralizedBoostedKernels
 from boosting_grf.datasets import generate_causal_data
 
 plt.style.use('matplotlibrc')
@@ -47,7 +47,7 @@ def evaluate_rmse(
     test = generate_causal_data(n=test_size, p=p, dgp=dgp, sigma_tau=1.0, seed=rng.integers(1_000_000))
 
     idx1, idx2 = split_indices(n, rng)
-    model = fit_alg1_grf(
+    model = GeneralizedBoostedKernels.fit(
         data.X[idx1],
         build_observations(data.Y[idx1], data.W[idx1]),
         data.X[idx2],
@@ -160,7 +160,7 @@ def main() -> None:
         ax = axes_iter[idx]
         ax.plot(vals_arr, means, marker="o")
         ax.fill_between(vals_arr, means - 1.96 * stds, means + 1.96 * stds, alpha=0.3)
-        if np.all(vals_arr > 0) and (np.max(vals_arr) / np.min(vals_arr) >= 10.0):
+        if nlabel == 'Samples' or 'Ridge' in nlabel:
             ax.set_xscale("log")
         ax.set_title(label)
         ax.set_xlabel(label)

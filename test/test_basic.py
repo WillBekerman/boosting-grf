@@ -1,6 +1,6 @@
 import numpy as np
 
-from boosting_grf import fit_alg1_grf
+from boosting_grf import GeneralizedBoostedKernels
 from boosting_grf.datasets import generate_causal_data
 
 
@@ -13,7 +13,7 @@ def test_small_fit_runs():
     idx = np.random.default_rng(1).permutation(data.X.shape[0])
     mid = data.X.shape[0] // 2
     d1, d2 = idx[:mid], idx[mid:]
-    model = fit_alg1_grf(
+    model = GeneralizedBoostedKernels.fit(
         data.X[d1],
         build_observations(data.Y[d1], data.W[d1]),
         data.X[d2],

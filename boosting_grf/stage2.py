@@ -49,10 +49,13 @@ def fit_stage2_grf(
             members_map.setdefault(lid_int, []).append(idx)
         weight_map: Dict[int, float] = {}
         members_map_np: Dict[int, np.ndarray] = {}
+        leaf_counts = trees[b]["leaf_counts_on_Gb"]
         for lid_int, members in members_map.items():
             arr = np.asarray(members, dtype=np.int64)
             members_map_np[lid_int] = arr
-            weight_map[lid_int] = 1.0 / float(arr.size)
+            denom = float(leaf_counts.get(lid_int, 0))
+            if denom > 0.0:
+                weight_map[lid_int] = 1.0 / denom
         leaf_members_per_tree.append(members_map_np)
         leaf_weights_per_tree.append(weight_map)
     return {
@@ -66,7 +69,8 @@ def compute_beta_weights(model: Dict[str, Any], x_new: np.ndarray) -> np.ndarray
     """Compute β-weights for a new query point following Algorithm 1.
 
     Args:
-        model: A model dictionary constructed by :func:`fit_alg1_grf`.
+        model: A model dictionary constructed by
+            :meth:`boosting_grf.model.GeneralizedBoostedKernels.fit`.
         x_new: Feature vector for which the β-weights are to be evaluated.
 
     Returns:

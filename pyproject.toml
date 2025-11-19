@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=64", "wheel", "pybind11>=2.11", "numpy>=1.21"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -19,6 +19,9 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://example.com/boosting-grf"
+
+[project.optional-dependencies]
+dev = ["matplotlib", "pytest", "pytest-cov"]
 
 [tool.setuptools]
 packages = ["boosting_grf"]

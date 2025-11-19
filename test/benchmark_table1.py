@@ -12,7 +12,7 @@ from typing import Dict, Optional, Tuple, List
 import numpy as np
 from tqdm.auto import tqdm
 
-from boosting_grf import fit_alg1_grf
+from boosting_grf import GeneralizedBoostedKernels
 from boosting_grf.datasets import generate_causal_data
 
 
@@ -109,7 +109,7 @@ def _run_single_trial(
     mid = scenario.n // 2
     d1, d2 = idx[:mid], idx[mid:]
 
-    model = fit_alg1_grf(
+    model = GeneralizedBoostedKernels.fit(
         data.X[d1],
         build_observations(y_train[d1], w_train[d1]),
         data.X[d2],

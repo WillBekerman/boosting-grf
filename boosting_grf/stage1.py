@@ -64,7 +64,7 @@ def fit_stage1_structures(
         Gb_idx = np.where(keep)[0]
         if Gb_idx.shape[0] < 2 * min_leaf:
             raise RuntimeError("G_b too small; increase xi1 or reduce min_leaf.")
-        XGb = X1[Gb_idx, :]
+        XGb = np.asfortranarray(X1[Gb_idx, :])
         OGb = [O1[int(i)] for i in Gb_idx]
         m = XGb.shape[0]
 
